@@ -33,7 +33,7 @@ static int qf_read(struct usbnet *dev, u8 reg, u16 length, void *data)
 	void *buf;
 	int err = -ENOMEM;
 
-	devdbg(dev, "qf_read() reg=0x%02x length=%d", reg, length);
+    dev_dbg(&dev->net->dev, "qf_read() reg=0x%02x length=%d", reg, length);
 
 	buf = kmalloc(length, GFP_KERNEL);
 	if (!buf)
@@ -58,7 +58,7 @@ static int qf_write(struct usbnet *dev, u8 reg, u16 length, void *data)
 	void *buf = NULL;
 	int err = -ENOMEM;
 
-	devdbg(dev, "qf_write() reg=0x%02x, length=%d", reg, length);
+	dev_dbg(&dev->net->dev, "qf_write() reg=0x%02x, length=%d", reg, length);
 
 	if (data) {
 		buf = kmalloc(length, GFP_KERNEL);
@@ -86,7 +86,7 @@ static int qf_read_reg(struct usbnet *dev, u8 reg, u8 *value)
 /* qf9700 write one register to MAC */
 static int qf_write_reg(struct usbnet *dev, u8 reg, u8 value)
 {
-	devdbg(dev, "qf_write_reg() reg=0x%02x, value=0x%02x", reg, value);
+    dev_dbg(&dev->net->dev, "qf_write_reg() reg=0x%02x, value=0x%02x", reg, value);
 	return usb_control_msg(dev->udev, usb_sndctrlpipe(dev->udev, 0),
 			       QF_WR_REG, QF_REQ_WR_REG,
 			       value, reg, NULL, 0, USB_CTRL_SET_TIMEOUT);
@@ -112,13 +112,13 @@ static void qf_write_async_helper(struct usbnet *dev, u8 reg, u8 value, u16 leng
 
 	urb = usb_alloc_urb(0, GFP_ATOMIC);
 	if (!urb) {
-		deverr(dev, "Error allocating URB in qf_write_async_helper!");
+	    dev_err(&dev->net->dev, "Error allocating URB in qf_write_async_helper!");
 		return;
 	}
 
 	req = kmalloc(sizeof(struct usb_ctrlrequest), GFP_ATOMIC);
 	if (!req) {
-		deverr(dev, "Failed to allocate memory for control request");
+		dev_err(&dev->net->dev, "Failed to allocate memory for control request");
 		usb_free_urb(urb);
 		return;
 	}
@@ -135,7 +135,7 @@ static void qf_write_async_helper(struct usbnet *dev, u8 reg, u8 value, u16 leng
 
 	status = usb_submit_urb(urb, GFP_ATOMIC);
 	if (status < 0) {
-		deverr(dev, "Error submitting the control message: status=%d",
+		dev_err(&dev->net->dev, "Error submitting the control message: status=%d",
 		       status);
 		kfree(req);
 		usb_free_urb(urb);
@@ -146,14 +146,14 @@ static void qf_write_async_helper(struct usbnet *dev, u8 reg, u8 value, u16 leng
 
 static void qf_write_async(struct usbnet *dev, u8 reg, u16 length, void *data)
 {
-	devdbg(dev, "qf_write_async() reg=0x%02x length=%d", reg, length);
+    dev_dbg(&dev->net->dev, "qf_write_async() reg=0x%02x length=%d", reg, length);
 
 	qf_write_async_helper(dev, reg, 0, length, data);
 }
 
 static void qf_write_reg_async(struct usbnet *dev, u8 reg, u8 value)
 {
-	devdbg(dev, "qf_write_reg_async() reg=0x%02x value=0x%02x", reg, value);
+    dev_dbg(&dev->net->dev, "qf_write_reg_async() reg=0x%02x value=0x%02x", reg, value);
 
 	qf_write_async_helper(dev, reg, value, 0, NULL);
 }
@@ -182,7 +182,7 @@ static int qf_share_read_word(struct usbnet *dev, int phy, u8 reg, __le16 *value
 	}
 
 	if (i >= QF_SHARE_TIMEOUT) {
-		deverr(dev, "%s read timed out!", phy ? "phy" : "eeprom");
+        dev_err(&dev->net->dev, "%s read timed out!", phy ? "phy" : "eeprom");
 		ret = -EIO;
 		goto out;
 	}
@@ -190,7 +190,7 @@ static int qf_share_read_word(struct usbnet *dev, int phy, u8 reg, __le16 *value
 	qf_write_reg(dev, EPCR, 0x0);
 	ret = qf_read(dev, EPDR, 2, value);
 
-	devdbg(dev, "read shared %d 0x%02x returned 0x%04x, %d",
+	dev_dbg(&dev->net->dev, "read shared %d 0x%02x returned 0x%04x, %d",
 	       phy, reg, *value, ret);
 
  out:
@@ -226,7 +226,7 @@ static int qf_share_write_word(struct usbnet *dev, int phy, u8 reg, __le16 value
 	}
 
 	if (i >= QF_SHARE_TIMEOUT) {
-		deverr(dev, "%s write timed out!", phy ? "phy" : "eeprom");
+        dev_err(&dev->net->dev, "%s write timed out!", phy ? "phy" : "eeprom");
 		ret = -EIO;
 		goto out;
 	}
@@ -275,13 +275,13 @@ static int qf9700_mdio_read(struct net_device *netdev, int phy_id, int loc)
 	__le16 res;
 
 	if (phy_id) {
-		devdbg(dev, "Only internal phy supported");
+        dev_dbg(&dev->net->dev, "Only internal phy supported");
 		return 0;
 	}
 
 	qf_share_read_word(dev, 1, loc, &res);
 
-	devdbg(dev,
+	dev_dbg(&dev->net->dev,
 	       "qf9700_mdio_read() phy_id=0x%02x, loc=0x%02x, returns=0x%04x",
 	       phy_id, loc, le16_to_cpu(res));
 
@@ -295,11 +295,11 @@ static void qf9700_mdio_write(struct net_device *netdev, int phy_id, int loc, in
 	__le16 res = cpu_to_le16(val);
 
 	if (phy_id) {
-		devdbg(dev, "Only internal phy supported");
+		dev_dbg(&dev->net->dev, "Only internal phy supported");
 		return;
 	}
 
-	devdbg(dev,"qf9700_mdio_write() phy_id=0x%02x, loc=0x%02x, val=0x%04x",
+	dev_dbg(&dev->net->dev,"qf9700_mdio_write() phy_id=0x%02x, loc=0x%02x, val=0x%04x",
 	       phy_id, loc, val);
 
 	qf_share_write_word(dev, 1, loc, res);
@@ -335,8 +335,6 @@ static struct ethtool_ops qf9700_ethtool_ops = {
 	.set_msglevel	= usbnet_set_msglevel,
 	.get_eeprom_len	= qf9700_get_eeprom_len,
 	.get_eeprom	= qf9700_get_eeprom,
-	.get_settings	= usbnet_get_settings,
-	.set_settings	= usbnet_set_settings,
 	.nway_reset	= usbnet_nway_reset,
 };
 
@@ -347,20 +345,18 @@ static void qf9700_set_multicast(struct net_device *net)
 	 * to avoid allocating memory that is tricky to free later */
 	u8 *hashes = (u8 *) & dev->data;
 	u8 rx_ctl = 0x31;	// enable, disable_long, disable_crc
-
+    struct netdev_hw_addr *ha;
+   
 	memset(hashes, 0x00, QF_MCAST_SIZE);
 	hashes[QF_MCAST_SIZE - 1] |= 0x80;	/* broadcast address */
 
 	if (net->flags & IFF_PROMISC) {
 		rx_ctl |= 0x02;
-	} else if (net->flags & IFF_ALLMULTI || net->mc_count > QF_MCAST_MAX) {
-		rx_ctl |= 0x04;
-	} else if (net->mc_count) {
-		struct dev_mc_list *mc_list = net->mc_list;
-		int i;
-
-		for (i = 0; i < net->mc_count; i++, mc_list = mc_list->next) {
-			u32 crc = ether_crc(ETH_ALEN, mc_list->dmi_addr) >> 26;
+	} else if (net->flags & IFF_ALLMULTI) {
+		rx_ctl |= 0x04;    
+	} else {
+		netdev_for_each_mc_addr(ha, net) {
+			u32 crc = ether_crc(ETH_ALEN, ha->addr) >> 26;
 			hashes[crc >> 3] |= 1 << (crc & 0x7);
 		}
 	}
@@ -377,7 +373,7 @@ static const struct net_device_ops qf9700_netdev_ops = {
 	.ndo_set_mac_address 	= eth_mac_addr,
 	.ndo_validate_addr	= eth_validate_addr,
 	.ndo_do_ioctl		= qf9700_ioctl,
-	.ndo_set_multicast_list = qf9700_set_multicast,
+    .ndo_set_rx_mode = qf9700_set_multicast,   
 };
 
 static int qf9700_bind(struct usbnet *dev, struct usb_interface *intf)
@@ -388,7 +384,7 @@ static int qf9700_bind(struct usbnet *dev, struct usb_interface *intf)
 	if (ret)
 		goto out;
 
-        dev->net->netdev_ops = &qf9700_netdev_ops;
+    dev->net->netdev_ops = &qf9700_netdev_ops;
 	dev->net->ethtool_ops = &qf9700_ethtool_ops;
 	dev->net->hard_header_len += QF_TX_OVERHEAD;
 	dev->hard_mtu = dev->net->mtu + dev->net->hard_header_len;
@@ -413,9 +409,9 @@ static int qf9700_bind(struct usbnet *dev, struct usb_interface *intf)
 
 	/* power up and reset phy */
 	qf_write_reg(dev, PRR, 1);
-	udelay(20 * 1000);	// at least 10ms, here 20ms for safe
+	msleep(20);	// at least 10ms, here 20ms for safe
 	qf_write_reg(dev, PRR, 0);
-	udelay(2 * 1000);	// at least 1ms, here 2ms for reading right register
+	msleep(2);	// at least 1ms, here 2ms for reading right register
 
 	/* receive broadcast packets */
 	qf9700_set_multicast(dev->net);
@@ -525,10 +521,10 @@ static void qf9700_status(struct usbnet *dev, struct urb *urb)
 		if (link) {
 			netif_carrier_on(dev->net);
 			usbnet_defer_kevent (dev, EVENT_LINK_RESET);
-		}
-		else
+		} else {
 			netif_carrier_off(dev->net);
-		devdbg(dev, "Link Status is: %d", link);
+        }
+		dev_dbg(&dev->net->dev, "Link Status is: %d", link);
 	}
 }
 
@@ -539,7 +535,7 @@ static int qf9700_link_reset(struct usbnet *dev)
 	mii_check_media(&dev->mii, 1, 1);
 	mii_ethtool_gset(&dev->mii, &ecmd);
 
-	devdbg(dev, "link_reset() speed: %d duplex: %d",
+	dev_dbg(&dev->net->dev, "link_reset() speed: %d duplex: %d",
 	       ecmd.speed, ecmd.duplex);
 
 	return 0;
